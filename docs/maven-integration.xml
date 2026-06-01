@@ -1,0 +1,110 @@
+<!--
+  ============================================================
+  Maven Integration for "mvn energy-analyze"
+  ============================================================
+
+  Add this plugin block to your project's pom.xml to integrate
+  the energy analyzer into the Maven build lifecycle.
+
+  This allows you to run:
+    mvn energy-analyze
+    mvn verify  (will include energy analysis automatically)
+
+  Two integration approaches are shown below:
+    A) exec-maven-plugin  → runs the JAR as a process (simplest)
+    B) Lifecycle binding  → binds to 'verify' phase automatically
+
+  ============================================================
+-->
+
+<!-- ── APPROACH A: Run via exec-maven-plugin ──────────────────────────── -->
+<!-- Add to your existing <plugins> section in pom.xml -->
+
+<plugin>
+    <groupId>org.codehaus.mojo</groupId>
+    <artifactId>exec-maven-plugin</artifactId>
+    <version>3.1.1</version>
+    <executions>
+
+        <!-- Bind to 'verify' phase so it runs automatically on: mvn verify -->
+        <execution>
+            <id>energy-analyze</id>
+            <phase>verify</phase>
+            <goals>
+                <goal>exec</goal>
+            </goals>
+            <configuration>
+                <executable>java</executable>
+                <arguments>
+                    <argument>-jar</argument>
+                    <!-- Point to your built analyzer JAR -->
+                    <argument>${project.basedir}/tools/java-energy-analyzer-1.0.0.jar</argument>
+                    <!-- Source directory to analyze -->
+                    <argument>${project.build.sourceDirectory}</argument>
+                    <!-- Project name for the report -->
+                    <argument>--name=${project.name}</argument>
+                    <!-- Override config if needed -->
+                    <argument>--spring.config.additional-location=file:${project.basedir}/energy-analyzer.yml</argument>
+                </arguments>
+                <!-- Fail the Maven build if the analyzer exits with code 1 -->
+                <successCodes>
+                    <successCode>0</successCode>
+                </successCodes>
+            </configuration>
+        </execution>
+
+    </executions>
+</plugin>
+
+<!--
+  ── APPROACH B: Properties-based threshold override ─────────────────────
+
+  Add to your <properties> section to control thresholds per-project:
+
+  <properties>
+      <energy.eei.threshold>60</energy.eei.threshold>
+      <energy.max.hotspots>5</energy.max.hotspots>
+      <energy.fail.build>true</energy.fail.build>
+  </properties>
+
+  Then reference in the exec-plugin above:
+      <argument>--energy-analyzer.thresholds.minimum-eei-threshold=${energy.eei.threshold}</argument>
+      <argument>--energy-analyzer.thresholds.max-allowed-hotspots=${energy.max.hotspots}</argument>
+      <argument>--energy-analyzer.thresholds.fail-build-on-violation=${energy.fail.build}</argument>
+
+  ── Per-profile thresholds ───────────────────────────────────────────────
+
+  Different profiles for different standards:
+
+  <profiles>
+      <!-- Trading/financial system - strict standards -->
+      <profile>
+          <id>trading-system</id>
+          <properties>
+              <energy.eei.threshold>80</energy.eei.threshold>
+              <energy.max.hotspots>2</energy.max.hotspots>
+          </properties>
+      </profile>
+
+      <!-- Batch processing - relaxed standards -->
+      <profile>
+          <id>batch-processing</id>
+          <properties>
+              <energy.eei.threshold>50</energy.eei.threshold>
+              <energy.max.hotspots>10</energy.max.hotspots>
+          </properties>
+      </profile>
+
+      <!-- CI mode - warn only, never fail build -->
+      <profile>
+          <id>energy-warn-only</id>
+          <properties>
+              <energy.fail.build>false</energy.fail.build>
+          </properties>
+      </profile>
+  </profiles>
+
+  Run with:   mvn verify -P trading-system
+              mvn verify -P batch-processing
+              mvn verify -P energy-warn-only
+-->

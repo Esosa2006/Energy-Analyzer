@@ -1,0 +1,252 @@
+# ============================================================
+# GitHub Actions Workflow: Java Energy Analyzer CI/CD Gate
+#
+# Triggers on every push and pull request.
+# Fails the build if:
+#   - Any method EEI < minimum-eei-threshold (default: 60)
+#   - Hotspot count > max-allowed-hotspots (default: 5)
+#
+# Thresholds configured in: src/main/resources/application.yml
+# ============================================================
+
+name: Energy Efficiency Quality Gate
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: '17'
+  SOURCE_PATH: 'src/main/java'
+  ANALYZER_JAR: 'target/java-energy-analyzer-1.0.0.jar'
+
+jobs:
+
+  # ── Job 1: Build the analyzer ──────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests --no-transfer-progress
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyzer-jar
+          path: ${{ env.ANALYZER_JAR }}
+          retention-days: 7
+
+  # ── Job 2: Energy Efficiency Analysis ─────────────────────────────────────
+  energy-analysis:
+    name: Energy Efficiency Analysis
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: Download analyzer JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: analyzer-jar
+          path: target/
+
+      # ── Core analysis step ───────────────────────────────────────────────
+      - name: Run Energy Analysis
+        id: energy_analysis
+        run: |
+          echo "========================================================"
+          echo "  Java Code Efficiency & Energy-Aware Performance Analyzer"
+          echo "  Commit : ${{ github.sha }}"
+          echo "  Branch : ${{ github.ref_name }}"
+          echo "  Source : ${{ env.SOURCE_PATH }}"
+          echo "========================================================"
+
+          set +e  # Don't exit immediately on non-zero (we handle exit codes)
+
+          java \
+            -Dspring.main.web-application-type=none \
+            -Denergy-analyzer.thresholds.fail-build-on-violation=true \
+            -jar ${{ env.ANALYZER_JAR }} \
+            ${{ env.SOURCE_PATH }} \
+            --name="${{ github.repository }}" \
+            | tee energy-report.txt
+
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          echo "========================================================"
+          echo "  Analysis complete | Exit code: $EXIT_CODE"
+          echo "  0=PASS  1=THRESHOLD VIOLATION  2=ANALYSIS ERROR"
+          echo "========================================================"
+
+          exit $EXIT_CODE
+
+      # ── Upload report (always, even on failure) ──────────────────────────
+      - name: Upload energy analysis report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: energy-report-${{ github.run_number }}
+          path: energy-report.txt
+          retention-days: 30
+
+      # ── GitHub Actions summary page ──────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        run: |
+          PASSED="${{ steps.energy_analysis.outputs.exit_code == '0' }}"
+          ICON=$([ "$PASSED" = "true" ] && echo "✅" || echo "❌")
+          STATUS=$([ "$PASSED" = "true" ] && echo "PASSED" || echo "FAILED")
+
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ⚡ Energy Efficiency Analysis — ${ICON} ${STATUS}
+
+          | Field        | Value |
+          |--------------|-------|
+          | Commit       | \`${{ github.sha }}\` |
+          | Branch       | \`${{ github.ref_name }}\` |
+          | Run          | #${{ github.run_number }} |
+          | Triggered by | ${{ github.actor }} |
+
+          <details><summary>📋 Full Analysis Output</summary>
+
+          \`\`\`
+          $(cat energy-report.txt)
+          \`\`\`
+
+          </details>
+
+          > ℹ️ **EEI** (Energy Efficiency Index) is a *relative* software efficiency indicator
+          > derived from static analysis — not a physical energy measurement in Joules.
+          > Configure thresholds in \`src/main/resources/application.yml\`.
+          EOF
+
+      # ── PR comment ────────────────────────────────────────────────────────
+      - name: Comment on Pull Request
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('energy-report.txt', 'utf8');
+            const exitCode = '${{ steps.energy_analysis.outputs.exit_code }}';
+            const passed = exitCode === '0';
+
+            const truncated = output.length > 4000
+              ? output.substring(0, 4000) + '\n... (see full report artifact)'
+              : output;
+
+            const statusLine = passed
+              ? '## ⚡ Energy Analysis — ✅ Quality Gate PASSED'
+              : '## ⚡ Energy Analysis — ❌ Quality Gate FAILED';
+
+            const guidance = passed ? '' : `
+            ### 🔧 How to Fix
+            1. Open the **energy-report artifact** above for full details
+            2. Find methods with EEI below threshold or flagged as hotspots
+            3. Apply the suggested optimizations (reduce nesting, use StringBuilder, etc.)
+            4. Re-push to trigger a new analysis
+            `;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `${statusLine}
+            ${guidance}
+            <details>
+            <summary>📋 Analysis Output</summary>
+
+            \`\`\`
+            ${truncated}
+            \`\`\`
+
+            </details>
+
+            > **Note:** EEI is a relative software efficiency indicator (not Joules).
+            > Thresholds configured in \`application.yml\`.`
+            });
+
+  # ── Job 3: Unit Tests (parallel) ──────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run tests
+        run: mvn test --no-transfer-progress
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_number }}
+          path: target/surefire-reports/
+
+  # ── Job 4: Final gate — blocks merge if any job failed ────────────────────
+  quality-gate:
+    name: ✅ All Checks Pass
+    runs-on: ubuntu-latest
+    needs: [build, energy-analysis, test]
+    if: always()
+
+    steps:
+      - name: Evaluate all results
+        run: |
+          echo "Build:           ${{ needs.build.result }}"
+          echo "Energy Analysis: ${{ needs.energy-analysis.result }}"
+          echo "Tests:           ${{ needs.test.result }}"
+
+          FAILED=0
+
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "❌ Build job failed"
+            FAILED=1
+          fi
+
+          if [ "${{ needs.energy-analysis.result }}" != "success" ]; then
+            echo "❌ Energy analysis quality gate failed."
+            echo "   → Optimize methods below the EEI threshold before merging."
+            FAILED=1
+          fi
+
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "❌ Unit tests failed"
+            FAILED=1
+          fi
+
+          if [ $FAILED -eq 0 ]; then
+            echo "✅ All quality gates passed — safe to merge"
+          else
+            exit 1
+          fi

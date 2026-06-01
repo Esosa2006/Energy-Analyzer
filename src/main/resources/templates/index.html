@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Java Energy Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        :root {
+            --bg: #0a0e1a;
+            --surface: #111827;
+            --surface2: #1a2235;
+            --border: #1e2d45;
+            --accent: #00d4aa;
+            --accent2: #7c3aed;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #22c55e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        /* Animated background grid */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 760px;
+        }
+
+        .logo-area {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .logo-icon {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0 40px rgba(0,212,170,0.3);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 span { color: var(--accent); }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .disclaimer-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(124,58,237,0.15);
+            border: 1px solid rgba(124,58,237,0.3);
+            color: #a78bfa;
+            font-size: 0.75rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 100px;
+            margin-top: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .upload-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            color: var(--text);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 14px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drop-zone:hover, .drop-zone.dragging {
+            border-color: var(--accent);
+            background: rgba(0,212,170,0.04);
+        }
+
+        .drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .drop-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+        .drop-label {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 0.4rem;
+        }
+
+        .drop-hint {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .file-list {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .file-chip {
+            background: rgba(0,212,170,0.1);
+            border: 1px solid rgba(0,212,170,0.2);
+            color: var(--accent);
+            font-size: 0.78rem;
+            padding: 0.25rem 0.7rem;
+            border-radius: 100px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent), #00b894);
+            color: #0a0e1a;
+            border: none;
+            border-radius: 12px;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            transition: all 0.2s;
+            margin-top: 1.5rem;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(0,212,170,0.3); }
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-demo {
+            width: 100%;
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.9rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+
+        .btn-demo:hover { border-color: var(--accent); color: var(--accent); }
+
+        .error-banner {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #fca5a5;
+            border-radius: 10px;
+            padding: 0.9rem 1.2rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .feature {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+        }
+
+        .feature-icon { font-size: 1.4rem; margin-bottom: 0.6rem; }
+        .feature h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .feature p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+        .loading { display: none; }
+        .loading.active { display: flex; align-items: center; justify-content: center; gap: 0.8rem; padding: 1rem; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="logo-area">
+        <div class="logo-icon">⚡</div>
+        <h1>Java <span>Energy</span> Analyzer</h1>
+        <p class="subtitle">Static analysis tool for Java code efficiency and energy-aware performance evaluation</p>
+        <div class="disclaimer-badge">
+            ℹ EEI = relative efficiency indicator · not Joules
+        </div>
+    </div>
+
+    <div th:if="${error}" class="error-banner">
+        ⚠ <span th:text="${error}">Error message</span>
+    </div>
+
+    <div class="upload-card">
+        <h2>⬆ Upload Java Source Files</h2>
+
+        <form th:action="@{/upload}" method="post" enctype="multipart/form-data" id="uploadForm">
+            <div class="form-group">
+                <label for="projectName">Project Name</label>
+                <input type="text" id="projectName" name="projectName"
+                       placeholder="e.g. My E-Commerce Backend" value="My Java Project"/>
+            </div>
+
+            <div class="form-group">
+                <label>Java Source Files (.java)</label>
+                <div class="drop-zone" id="dropZone">
+                    <input type="file" name="files" id="fileInput" multiple accept=".java"/>
+                    <div class="drop-icon">📂</div>
+                    <div class="drop-label">Drop .java files here or click to browse</div>
+                    <div class="drop-hint">Supports multiple files · Max 50MB total</div>
+                    <div class="file-list" id="fileList"></div>
+                </div>
+            </div>
+
+            <div class="loading" id="loadingIndicator">
+                <div class="spinner"></div>
+                <span style="color:var(--muted); font-size:0.9rem">Analyzing your Java code... this may take a moment</span>
+            </div>
+
+            <button type="submit" class="btn-primary" id="submitBtn">
+                ⚡ Analyze Code Efficiency
+            </button>
+        </form>
+    </div>
+
+    <a href="/demo" class="btn-demo">🎯 View Demo Dashboard (no upload needed)</a>
+
+    <div class="features">
+        <div class="feature">
+            <div class="feature-icon">🔍</div>
+            <h3>Static Analysis</h3>
+            <p>JavaParser-based extraction of cyclomatic complexity, loop depth, anti-patterns</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">📊</div>
+            <h3>EEI Scoring</h3>
+            <p>Energy Efficiency Index (0–100) with weighted call graph importance scoring</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🔗</div>
+            <h3>CI/CD Integration</h3>
+            <p>GitHub Actions, Jenkins, Maven & Gradle plugins with quality gate enforcement</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const form = document.getElementById('uploadForm');
+    const loading = document.getElementById('loadingIndicator');
+    const submitBtn = document.getElementById('submitBtn');
+
+    fileInput.addEventListener('change', updateFileList);
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragging');
+        fileInput.files = e.dataTransfer.files;
+        updateFileList();
+    });
+
+    function updateFileList() {
+        fileList.innerHTML = '';
+        Array.from(fileInput.files).forEach(f => {
+            const chip = document.createElement('span');
+            chip.className = 'file-chip';
+            chip.textContent = f.name;
+            fileList.appendChild(chip);
+        });
+    }
+
+    form.addEventListener('submit', () => {
+        loading.classList.add('active');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⚡ Analyzing...';
+    });
+</script>
+</body>
+</html>

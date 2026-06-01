@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: Java Energy Analyzer
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  thymeleaf:
+    cache: false
+
+# ============================================================
+# Energy Analyzer Threshold Configuration
+# Teams can adjust these per project type:
+#   - trading system: minimum-eei-threshold: 80
+#   - batch processing: minimum-eei-threshold: 50
+#   - general purpose: minimum-eei-threshold: 60
+# ============================================================
+energy-analyzer:
+  thresholds:
+    minimum-eei-threshold: 60       # Build fails if any method EEI < this
+    critical-threshold: 30          # Methods below this are CRITICAL tier
+    max-allowed-hotspots: 5         # Build fails if hotspot count exceeds this
+    fail-build-on-violation: true   # Set to false to warn-only mode
+  upload:
+    temp-dir: /tmp/energy-analyzer-uploads
+  report:
+    output-dir: /tmp/energy-analyzer-reports

@@ -1,0 +1,164 @@
+// ============================================================
+// build.gradle — Gradle Integration for Energy Analyzer
+//
+// Adds a custom 'energyAnalyze' task to any Gradle project.
+//
+// Usage:
+//   ./gradlew energyAnalyze
+//   ./gradlew check          (includes energyAnalyze automatically)
+//   ./gradlew energyAnalyze --threshold=70
+//   ./gradlew energyAnalyze --warn-only
+//
+// Add this file's contents to your project's build.gradle,
+// or apply it as a script plugin.
+// ============================================================
+
+// ── Plugin configuration block ────────────────────────────────────────────────
+// Add these to your existing build.gradle
+
+// ── Task: energyAnalyze ──────────────────────────────────────────────────────
+/**
+ * Custom Gradle task that runs the Java Energy Analyzer in CLI mode.
+ *
+ * Reads configuration from:
+ *   1. Task properties (highest priority)
+ *   2. gradle.properties (project-level)
+ *   3. application.yml in the analyzer JAR (defaults)
+ *
+ * Examples:
+ *   ./gradlew energyAnalyze
+ *   ./gradlew energyAnalyze -PeeiThreshold=70
+ *   ./gradlew energyAnalyze -PwarnOnly=true
+ */
+task energyAnalyze(type: JavaExec, group: 'verification',
+        description: 'Run Java Energy Efficiency static analysis') {
+
+    // Path to the energy analyzer JAR
+    // Override with: -PanalyzerJar=/path/to/analyzer.jar
+    def analyzerJar = project.findProperty('analyzerJar') ?:
+            "${rootDir}/tools/java-energy-analyzer-1.0.0.jar"
+
+    // Source directory to analyze
+    def sourceDir = project.findProperty('analyzeSource') ?:
+            "${projectDir}/src/main/java"
+
+    // Threshold configuration
+    def eeiThreshold    = project.findProperty('eeiThreshold') ?: '60'
+    def critThreshold   = project.findProperty('critThreshold') ?: '30'
+    def maxHotspots     = project.findProperty('maxHotspots') ?: '5'
+    def warnOnly        = project.findProperty('warnOnly') ?: 'false'
+    def failBuild       = warnOnly == 'true' ? 'false' : 'true'
+
+    classpath = files(analyzerJar)
+    mainClass = '-jar'   // we're running a JAR, not a main class
+
+    // Write a temp config file for this run
+    def tempConfig = file("${buildDir}/energy-analyzer-config.yml")
+
+    doFirst {
+        mkdir buildDir
+
+        tempConfig.text = """
+energy-analyzer:
+  thresholds:
+    minimum-eei-threshold: ${eeiThreshold}
+    critical-threshold: ${critThreshold}
+    max-allowed-hotspots: ${maxHotspots}
+    fail-build-on-violation: ${failBuild}
+"""
+        println "⚡ Energy Analyzer Configuration:"
+        println "   Source: ${sourceDir}"
+        println "   Min EEI Threshold: ${eeiThreshold}"
+        println "   Critical Threshold: ${critThreshold}"
+        println "   Max Hotspots: ${maxHotspots}"
+        println "   Warn-only mode: ${warnOnly}"
+        println ""
+    }
+
+    // Arguments passed to the JAR (CLI mode)
+    args = [
+        sourceDir,
+        "--name=${project.name}",
+        "--spring.config.additional-location=file:${tempConfig.absolutePath}"
+    ]
+
+    // Capture exit code
+    // Gradle JavaExec throws on non-zero exit by default
+    // We handle this to support warn-only mode
+    ignoreExitValue = (warnOnly == 'true')
+
+    doLast {
+        if (tempConfig.exists()) tempConfig.delete()
+
+        if (execResult.exitValue == 0) {
+            println "\n✅ Energy analysis PASSED — all quality thresholds met"
+        } else if (execResult.exitValue == 1) {
+            if (warnOnly == 'true') {
+                println "\n⚠  Energy analysis: threshold violations found (warn-only mode, build continues)"
+            } else {
+                throw new GradleException(
+                    "❌ Energy analysis FAILED — quality thresholds violated. " +
+                    "Run with -PwarnOnly=true to suppress build failure.")
+            }
+        } else {
+            println "\n⚠  Energy analyzer encountered an error (exit code: ${execResult.exitValue})"
+        }
+    }
+}
+
+// ── Bind to 'check' lifecycle ────────────────────────────────────────────────
+// This makes 'energyAnalyze' run automatically when you run:
+//   ./gradlew check
+//   ./gradlew build
+//
+// Remove or comment out if you want to run it manually only.
+check.dependsOn energyAnalyze
+
+// ── Task must run AFTER compilation ──────────────────────────────────────────
+energyAnalyze.mustRunAfter compileJava
+if (tasks.findByName('test')) {
+    energyAnalyze.mustRunAfter test
+}
+
+// ── Per-environment profiles via gradle.properties ────────────────────────────
+/*
+  Create gradle.properties in your project root to set defaults:
+
+  # gradle.properties
+
+  # General purpose application
+  eeiThreshold=60
+  maxHotspots=5
+
+  # ── OR: Trading/financial system (strict) ──
+  # eeiThreshold=80
+  # maxHotspots=2
+
+  # ── OR: Batch processing (relaxed) ──
+  # eeiThreshold=50
+  # maxHotspots=10
+
+  # ── Warn-only (never fail build) ──
+  # warnOnly=true
+*/
+
+// ── Convenience tasks ────────────────────────────────────────────────────────
+
+/** Strict mode: threshold 80, only 2 hotspots allowed */
+task energyAnalyzeStrict(type: JavaExec, group: 'verification',
+        description: 'Energy analysis with strict thresholds (for critical systems)') {
+    dependsOn energyAnalyze
+    doFirst {
+        energyAnalyze.args[0]  // reuse same config
+        project.ext.set('eeiThreshold', '80')
+        project.ext.set('maxHotspots', '2')
+    }
+}
+
+/** Warn-only: report violations but never fail the build */
+task energyAnalyzeWarn(dependsOn: energyAnalyze, group: 'verification',
+        description: 'Energy analysis in warn-only mode (no build failure)') {
+    doFirst {
+        project.ext.set('warnOnly', 'true')
+    }
+}
