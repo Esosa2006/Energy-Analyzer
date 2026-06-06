@@ -10,27 +10,22 @@ import java.util.List;
 
 /**
  * EEICalculatorService - Energy Efficiency Index Calculator
- *
  * Computes the EEI score (0–100) for a method.
- *
  * ─────────────────────────────────────────────────────────────────
  * IMPORTANT ACADEMIC DISCLAIMER:
  * The EEI is NOT a measurement of actual energy consumption in Joules.
  * It is a RELATIVE SOFTWARE EFFICIENCY INDICATOR derived from static
  * analysis, correlating with known performance anti-patterns.
- *
  * The theoretical grounding:
  *   Energy ≈ Power × Time
  *   Execution time is dominated by algorithmic complexity and anti-patterns.
  *   Therefore: higher complexity + more anti-patterns → relatively higher
  *   energy footprint at scale.
- *
  * This approach is consistent with:
  *   - Saborido et al. (2014) "Evolutionary Design of Energy Efficient Java Software"
  *   - Pereira et al. (2017) "Energy Efficiency across Programming Languages"
  *   - Sahin et al. (2012) "How Do Code Refactorings Affect Energy Usage?"
  * ─────────────────────────────────────────────────────────────────
- *
  * Scoring formula:
  *   1. Start with base score from complexity class
  *   2. Apply penalties for each detected anti-pattern

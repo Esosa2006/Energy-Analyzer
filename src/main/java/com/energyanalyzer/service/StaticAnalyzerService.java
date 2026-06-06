@@ -17,9 +17,7 @@ import java.util.stream.Collectors;
 
 /**
  * StaticAnalyzerService
- *
  * ORCHESTRATES the full analysis pipeline:
- *
  * 1. Parse Java files → StaticMetrics (CodeParserService)
  * 2. Build call graph → CallGraph (CallGraphService)
  * 3. Enrich metrics with graph data (fan-in, fan-out, depth)
@@ -166,6 +164,12 @@ public class StaticAnalyzerService {
     private MethodAnalysisResult analyzeMethod(StaticMetrics metrics, CallGraph callGraph) {
         // Step A: Classify complexity
         ComplexityClass complexity = complexityClassifier.classify(metrics);
+
+        // Adjust complexity upward if Stream API analysis detected
+        // a heavier operation than loop analysis alone found
+        complexity = complexityClassifier.adjustForStreamComplexity(
+                complexity, metrics.getStreamAnalysis()
+        );
 
         // Step B: Calculate EEI
         double eei = eeiCalculator.calculate(metrics, complexity);

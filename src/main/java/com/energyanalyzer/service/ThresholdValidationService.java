@@ -3,23 +3,18 @@ package com.energyanalyzer.service;
 import com.energyanalyzer.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * ThresholdValidationService
- *
  * Validates analysis results against configured quality thresholds.
  * Determines whether the build should pass or fail.
- *
  * This simulates a production-grade CI/CD quality gate, similar to:
  *   - SonarQube Quality Gates
  *   - PMD build-breakers
  *   - Checkstyle enforcement
- *
  * Configuration is loaded from application.yml:
  *   energy-analyzer.thresholds.*
  */

@@ -75,6 +75,14 @@ public class StaticMetrics {
     private int methodCallCount;
 
     /**
+     * Stream API analysis result.
+     * Populated if the method uses Java Stream API operations.
+     * NULL if no stream usage detected.
+     */
+    @Builder.Default
+    private StreamAnalysisResult streamAnalysis = StreamAnalysisResult.none();
+
+    /**
      * Fan-in: number of OTHER methods in the codebase that call this method.
      * High fan-in → structurally central → inefficiencies amplified.
      */

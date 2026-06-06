@@ -3,24 +3,19 @@ package com.energyanalyzer.service;
 import com.energyanalyzer.model.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * HotspotDetectorService
- *
  * Flags methods as performance/efficiency hotspots based on multiple criteria.
- *
  * A HOTSPOT is a method that:
  *   - Has poor EEI AND is structurally important, OR
  *   - Has very poor EEI regardless of structure, OR
  *   - Combines multiple anti-patterns with high complexity
- *
  * Hotspot detection uses a multi-criteria scoring approach:
  *   Each criterion that matches adds to the hotspot score.
  *   If total score >= hotspotThreshold → flagged as hotspot.
- *
  * This avoids false positives from a single criterion while
  * catching truly problematic methods.
  */

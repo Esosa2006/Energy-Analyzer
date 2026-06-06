@@ -7,10 +7,8 @@ import java.util.*;
 
 /**
  * Static call graph of the entire analyzed codebase.
- *
  * Represents the caller → callee relationship map between all methods.
  * Used to compute fan-in, fan-out, call chain depth, and centrality scores.
- *
  * Implementation uses an adjacency list representation for efficiency.
  */
 @Data

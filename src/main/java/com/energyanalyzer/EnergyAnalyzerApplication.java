@@ -11,11 +11,9 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * Java Code Efficiency and Energy-Aware Performance Analyzer
- *
  * Entry point for both:
  *  1. Web mode  → spring-boot server (default)
  *  2. CLI mode  → java -jar analyzer.jar <path-to-java-project>
- *
  * IMPORTANT ACADEMIC NOTE:
  * This system does NOT measure actual energy consumption in Joules.
  * It computes a relative Energy Efficiency Index (EEI) derived from:
@@ -40,7 +38,6 @@ public class EnergyAnalyzerApplication {
     /**
      * CLI mode: analyze a Java project from the command line.
      * Useful for CI/CD pipeline integration.
-     *
      * Usage: java -jar analyzer.jar /path/to/java/project [--threshold=60]
      */
     private static void runCliMode(String[] args) {

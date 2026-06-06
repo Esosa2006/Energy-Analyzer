@@ -18,7 +18,6 @@ import java.util.List;
 
 /**
  * ExportService
- *
  * Handles export of analysis reports to:
  *  - CSV: for spreadsheet import and further analysis
  *  - PDF: for documentation, academic submission, stakeholder presentation
@@ -29,7 +28,6 @@ public class ExportService {
 
     /**
      * Export analysis report to CSV format.
-     *
      * Columns: Method, Class, Complexity, EEI, WeightedEEI, Tier,
      *          RelativeCost, FanIn, FanOut, Centrality, Hotspot, AntiPatterns
      */
@@ -87,7 +85,6 @@ public class ExportService {
 
     /**
      * Export analysis report to PDF format.
-     *
      * Generates a professional PDF report suitable for:
      *  - Academic project submission
      *  - Stakeholder presentation

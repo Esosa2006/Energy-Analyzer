@@ -7,9 +7,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Configurable thresholds for the energy analyzer.
- *
  * Loaded from application.yml under the energy-analyzer.thresholds prefix.
- *
  * Different project types can use different thresholds:
  *   - Trading/financial systems: minimumEeiThreshold: 80
  *   - Batch processing systems: minimumEeiThreshold: 50

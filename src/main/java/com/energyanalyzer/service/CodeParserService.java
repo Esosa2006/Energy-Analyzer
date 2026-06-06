@@ -1,6 +1,7 @@
 package com.energyanalyzer.service;
 
 import com.energyanalyzer.model.StaticMetrics;
+import com.energyanalyzer.model.StreamAnalysisResult;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
@@ -130,6 +131,7 @@ public class CodeParserService {
                 .objectCreationCount(countObjectCreations(method))
                 .ioOperationCount(countIoOperations(method))
                 .methodCallCount(countMethodCalls(method))
+                .streamAnalysis(analyzeStreamOperations(method))
                 // fan-in/fan-out/callChainDepth are populated later by CallGraphService
                 .fanIn(0)
                 .fanOut(0)
@@ -305,5 +307,101 @@ public class CodeParserService {
         private void exitLoop() {
             currentDepth--;
         }
+    }
+
+    /**
+     * Detect Stream API usage and estimate complexity contribution.
+     *
+     * Stream chains are detected by looking for MethodCallExpr nodes
+     * whose names match known Stream API terminal/intermediate operations.
+     *
+     * Complexity estimation rules:
+     *   sorted()              → O(n log n) indicator
+     *   flatMap()             → O(n²) conservative estimate
+     *   nested stream calls   → O(n²)
+     *   all others            → O(n)
+     */
+    private StreamAnalysisResult analyzeStreamOperations(MethodDeclaration method) {
+        List<MethodCallExpr> allCalls = method.findAll(MethodCallExpr.class);
+
+        Set<String> streamIntermediateOps = Set.of(
+                "filter", "map", "flatMap", "peek", "distinct",
+                "limit", "skip", "sorted", "mapToInt", "mapToLong",
+                "mapToDouble", "mapToObj", "boxed", "unboxed"
+        );
+        Set<String> streamTerminalOps = Set.of(
+                "collect", "forEach", "reduce", "count", "findFirst",
+                "findAny", "anyMatch", "allMatch", "noneMatch",
+                "min", "max", "toList", "toArray", "sum", "average"
+        );
+        Set<String> streamSourceOps = Set.of(
+                "stream", "parallelStream", "of", "iterate", "generate"
+        );
+
+        boolean hasStreamSource = false;
+        boolean hasSorted = false;
+        boolean hasFlatMap = false;
+        boolean hasNestedStream = false;
+        int streamOpCount = 0;
+        List<String> detectedOps = new ArrayList<>();
+
+        for (MethodCallExpr call : allCalls) {
+            String name = call.getNameAsString();
+
+            if (streamSourceOps.contains(name)) {
+                hasStreamSource = true;
+                detectedOps.add(name + "()");
+            }
+            if (streamIntermediateOps.contains(name)) {
+                streamOpCount++;
+                detectedOps.add(name + "()");
+                if (name.equals("sorted")) hasSorted = true;
+                if (name.equals("flatMap")) hasFlatMap = true;
+            }
+            if (streamTerminalOps.contains(name) && hasStreamSource) {
+                streamOpCount++;
+                detectedOps.add(name + "()");
+            }
+        }
+
+        // Detect nested streams: a stream operation that itself contains
+        // a lambda with another stream call inside it
+        for (MethodCallExpr call : allCalls) {
+            if (streamIntermediateOps.contains(call.getNameAsString())) {
+                boolean lambdaContainsStream = call.findAll(MethodCallExpr.class)
+                        .stream()
+                        .filter(inner -> !inner.equals(call))
+                        .anyMatch(inner -> streamSourceOps.contains(inner.getNameAsString())
+                                || streamIntermediateOps.contains(inner.getNameAsString()));
+                if (lambdaContainsStream) {
+                    hasNestedStream = true;
+                }
+            }
+        }
+
+        if (!hasStreamSource && streamOpCount == 0) {
+            return StreamAnalysisResult.none();
+        }
+
+        // Determine complexity contribution
+        StreamAnalysisResult.StreamComplexity complexity;
+        String confidence;
+
+        if (hasNestedStream || hasFlatMap) {
+            complexity = StreamAnalysisResult.StreamComplexity.O_N2;
+            confidence = "MEDIUM"; // conservative estimate
+        } else if (hasSorted) {
+            complexity = StreamAnalysisResult.StreamComplexity.O_N_LOG_N;
+            confidence = "HIGH";
+        } else if (hasStreamSource && streamOpCount > 0) {
+            complexity = StreamAnalysisResult.StreamComplexity.O_N;
+            confidence = "HIGH";
+        } else {
+            complexity = StreamAnalysisResult.StreamComplexity.STREAM_BASED_OPERATION;
+            confidence = "LOW";
+        }
+
+        return new StreamAnalysisResult(true, complexity, confidence,
+                String.join(" → ", detectedOps));
     }
 }

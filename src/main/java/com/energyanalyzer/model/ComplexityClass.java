@@ -1,18 +1,20 @@
 package com.energyanalyzer.model;
 
+import lombok.Getter;
+
 /**
  * Approximate algorithmic complexity class for a method.
- *
  * Determined by static heuristics:
  *  - nested loop depth
  *  - recursion presence
  *  - loop count relative to nesting
- *
  * ACADEMIC NOTE:
  * Exact Big-O computation from source code alone is undecidable in general.
  * These classifications are APPROXIMATIONS based on structural heuristics,
  * which is consistent with static analysis literature (e.g., McCabe, 1976).
  */
+
+@Getter
 public enum ComplexityClass {
 
     /** Constant time - no loops, no recursion */
@@ -48,11 +50,6 @@ public enum ComplexityClass {
         this.relativeCostMultiplier = relativeCostMultiplier;
         this.description = description;
     }
-
-    public String getLabel() { return label; }
-    public int getBaseEei() { return baseEei; }
-    public long getRelativeCostMultiplier() { return relativeCostMultiplier; }
-    public String getDescription() { return description; }
 
     /** Format relative cost as human-readable string (e.g. "100x") */
     public String getRelativeCostLabel() {
