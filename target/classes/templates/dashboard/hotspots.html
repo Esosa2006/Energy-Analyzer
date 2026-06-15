@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Hotspots — ' + ${report.projectName}">Hotspots</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <th:block th:replace="~{dashboard/fragments :: shared-styles}"></th:block>
+</head>
+<body>
+<div class="layout">
+    <th:block th:replace="~{dashboard/fragments :: sidebar}"></th:block>
+    <main class="main">
+
+        <div class="header">
+            <div class="header-left">
+                <h1>Hotspots: <span class="project-name" th:text="${report.projectName}">Project</span></h1>
+                <div class="header-meta">
+                    <span class="meta-tag"
+                          th:text="${report.totalHotspots} + ' method(s) flagged'"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- No hotspots state -->
+        <div th:if="${hotspots.isEmpty()}"
+             style="background:var(--surface); border:1px solid rgba(34,197,94,0.3);
+                    border-radius:14px; padding:3rem; text-align:center;">
+            <div style="font-size:2rem; margin-bottom:0.75rem;">✅</div>
+            <div style="font-weight:600; font-size:1.1rem; color:var(--success); margin-bottom:0.4rem;">
+                No hotspots detected
+            </div>
+            <div style="color:var(--muted); font-size:0.85rem;">
+                All methods are within acceptable efficiency thresholds.
+            </div>
+        </div>
+
+        <!-- Hotspot cards -->
+        <div th:unless="${hotspots.isEmpty()}">
+            <div th:each="hs : ${hotspots}" class="hotspot-card">
+                <div class="hotspot-name" th:text="${hs.fullMethodId}">Class#method</div>
+                <div class="hotspot-badges">
+                    <span class="cmplx-badge"
+                          th:classappend="'cmplx-' + ${hs.complexityClass.name()}"
+                          th:text="${hs.complexityClass.label}"></span>
+                    <span class="tier-badge"
+                          th:classappend="'tier-' + ${hs.energyTier.name()}"
+                          th:text="${hs.energyTier.name()}"></span>
+                    <span style="font-family:var(--mono);font-size:0.75rem;color:var(--danger)"
+                          th:text="'EEI: ' + ${hs.eeiFormatted}"></span>
+                    <span style="font-family:var(--mono);font-size:0.75rem;color:var(--text2)"
+                          th:text="'Fan-in: ' + ${hs.fanIn}"></span>
+                    <span style="font-family:var(--mono);font-size:0.75rem;color:var(--text2)"
+                          th:text="'Weight: ' + ${#numbers.formatDecimal(hs.weightMultiplier,1,1)} + 'x'"></span>
+                    <span style="font-family:var(--mono);font-size:0.75rem;color:var(--text2)"
+                          th:text="'Relative cost: ' + ${hs.relativeCost}"></span>
+                </div>
+
+                <div style="font-size:0.8rem; color:var(--warning); font-weight:600; margin-bottom:0.4rem;">
+                    Why this is a hotspot:
+                </div>
+                <ul class="hotspot-reasons">
+                    <li th:each="reason : ${hs.hotspotReasons}" th:text="${reason}"></li>
+                </ul>
+
+                <div th:if="${!hs.antiPatterns.isEmpty()}"
+                     style="margin-top:0.75rem; font-size:0.78rem; color:var(--text2);">
+                    <strong style="color:var(--orange)">Anti-patterns: </strong>
+                    <span th:text="${#strings.listJoin(hs.antiPatterns, ', ')}"></span>
+                </div>
+
+                <!-- Per-method projected EEI -->
+                <div th:if="${!hs.suggestions.isEmpty()}"
+                     th:with="gainTotal=${hs.totalSuggestionGain},
+                              projected=${hs.projectedEei}">
+
+                    <div style="margin-top:1rem; background:var(--surface3); border:1px solid var(--border2);
+                                border-radius:10px; padding:1rem;">
+
+                        <div style="font-size:0.78rem; font-weight:600; color:var(--text2); margin-bottom:0.85rem;">
+                            ⚡ EEI Projection — if all suggestions applied
+                        </div>
+
+                        <!-- Current bar -->
+                        <div style="margin-bottom:0.6rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                                <span style="font-size:0.73rem; color:var(--muted);">Current</span>
+                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <span class="tier-badge"
+                                          th:classappend="'tier-' + ${hs.energyTier.name()}"
+                                          th:text="${hs.energyTier.name()}"></span>
+                                    <span style="font-family:var(--mono); font-size:0.78rem; font-weight:600;"
+                                          th:style="'font-family:var(--mono); font-size:0.78rem; font-weight:600; color:' + ${hs.energyTier.hexColor}"
+                                          th:text="${hs.eeiFormatted}"></span>
+                                </div>
+                            </div>
+                            <div style="height:10px; background:var(--surface); border-radius:5px; overflow:hidden;">
+                                <div th:style="'height:100%; border-radius:5px; background:' + ${hs.energyTier.hexColor} + '; width:' + ${hs.eeiScore} + '%; transition:width 0.5s;'"></div>
+                            </div>
+                        </div>
+
+                        <!-- Projected bar -->
+                        <div th:with="projectedTier=${projected >= 70 ? 'LOW' : projected >= 50 ? 'MEDIUM' : projected >= 30 ? 'HIGH' : 'CRITICAL'},
+                                      projectedColor=${projected >= 70 ? '#22c55e' : projected >= 50 ? '#eab308' : projected >= 30 ? '#f97316' : '#ef4444'}">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                                <span style="font-size:0.73rem; color:var(--muted);">Projected</span>
+                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <span class="tier-badge"
+                                          th:classappend="'tier-' + ${projectedTier}"
+                                          th:text="${projectedTier}"></span>
+                                    <span style="font-family:var(--mono); font-size:0.78rem; font-weight:600;"
+                                          th:style="'font-family:var(--mono); font-size:0.78rem; font-weight:600; color:' + ${projectedColor}"
+                                          th:text="${#numbers.formatDecimal(projected,1,1)}"></span>
+                                </div>
+                            </div>
+                            <div style="height:10px; background:var(--surface); border-radius:5px; overflow:hidden;">
+                                <!-- FIX: was '; width:' + ${projected} + '%'; transition:width 0.5s;'" — stray quote broke the parser -->
+                                <div th:style="'height:100%; border-radius:5px; background:' + ${projectedColor} + '; width:' + ${projected} + '%; transition:width 0.5s;'"></div>
+                            </div>
+                        </div>
+
+                        <!-- Gain summary -->
+                        <div style="margin-top:0.85rem; display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-size:0.75rem; color:var(--success); font-weight:600;"
+                                 th:text="'+' + ${gainTotal} + ' EEI points potential gain'">+35 EEI points</div>
+                            <div style="font-size:0.72rem; color:var(--muted);"
+                                 th:text="${hs.suggestions.size()} + ' optimization(s) available'">3 optimizations</div>
+                        </div>
+
+                        <div style="margin-top:0.6rem; font-size:0.7rem; color:var(--muted); font-style:italic;">
+                            Estimate only. Actual improvement depends on implementation.
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${!hs.suggestions.isEmpty()}" style="margin-top:1rem;">
+                    <div style="font-size:0.8rem; font-weight:600; color:var(--accent); margin-bottom:0.5rem;">
+                        Optimization recommendations:
+                    </div>
+                    <div th:each="s : ${hs.suggestions}" class="suggest-item">
+                        <div class="suggest-title">
+                            <span th:classappend="'p-' + ${s.priority}"
+                                  th:text="'[' + ${s.priority} + ']'"></span>
+                            <span th:text="${s.title}">Title</span>
+                        </div>
+                        <div class="suggest-why">
+                            <strong style="color:var(--warning)">Why: </strong>
+                            <span th:text="${s.whyItMatters}"></span>
+                        </div>
+                        <div class="suggest-how">
+                            <strong style="color:var(--accent)">Fix: </strong>
+                            <span th:text="${s.howToFix}"></span>
+                        </div>
+                        <div th:if="${s.codeExample != null and !s.codeExample.isEmpty()}"
+                             class="suggest-code" th:text="${s.codeExample}"></div>
+                        <div th:if="${s.estimatedEeiGain > 0}" class="suggest-gain"
+                             th:text="'Estimated EEI gain: +' + ${s.estimatedEeiGain} + ' points'"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+</body>
+</html>

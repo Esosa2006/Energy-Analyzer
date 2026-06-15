@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title th:text="'Summary — ' + ${report.projectName}">Summary</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <th:block th:replace="~{dashboard/fragments :: shared-styles}"></th:block>
+</head>
+<body>
+<div class="layout">
+    <th:block th:replace="~{dashboard/fragments :: sidebar}"></th:block>
+    <main class="main">
+
+        <div th:if="${isDemo}" class="demo-notice">
+            🎯 <strong>Demo Mode</strong> — Sample analysis. <a href="/">Upload your own code →</a>
+        </div>
+
+        <div class="disclaimer">
+            <strong>Academic Note:</strong> The EEI is a <strong>relative software efficiency indicator</strong>
+            derived from static analysis. It does <em>not</em> measure energy in Joules.
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <h1>Summary: <span class="project-name" th:text="${report.projectName}">Project</span></h1>
+                <div class="header-meta">
+                    <span class="meta-tag">ID: <span th:text="${report.reportId}">XXX</span></span>
+                    <span class="meta-tag" th:text="${report.formattedTimestamp}">timestamp</span>
+                    <span class="meta-tag" th:text="${report.totalMethodsAnalyzed} + ' methods'">N</span>
+                    <span class="meta-tag" th:text="${report.formattedDuration}">duration</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="/export/csv" class="btn btn-outline">⬇ CSV</a>
+                <a href="/export/pdf" class="btn btn-outline">⬇ PDF</a>
+                <a href="/" class="btn btn-accent">+ New Analysis</a>
+            </div>
+        </div>
+
+        <!-- Build Banner -->
+        <div class="build-banner" th:classappend="${report.buildPassed} ? 'pass' : 'fail'">
+            <div class="build-status">
+                <div class="build-dot"></div>
+                <div>
+                    <div class="build-label" th:if="${report.buildPassed}">✓ BUILD PASSED</div>
+                    <div class="build-label" th:unless="${report.buildPassed}">✗ BUILD FAILED</div>
+                    <div class="build-detail" th:if="${report.buildPassed}">All energy efficiency quality thresholds met</div>
+                    <div class="build-detail" th:unless="${report.buildPassed}"
+                         th:text="${report.buildFailureReasons.size()} + ' quality gate violation(s) detected'"></div>
+                </div>
+            </div>
+            <ul class="build-violations" th:if="${!report.buildPassed and !report.buildFailureReasons.isEmpty()}">
+                <li th:each="r,i : ${report.buildFailureReasons}" th:if="${i.index < 4}" th:text="${r}"></li>
+                <li th:if="${report.buildFailureReasons.size() > 4}"
+                    style="opacity:0.5"
+                    th:text="'... and ' + ${report.buildFailureReasons.size() - 4} + ' more'"></li>
+            </ul>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Project Grade</div>
+                <div class="stat-value" style="font-size:3rem"
+                     th:classappend="'grade-' + ${report.projectGrade}"
+                     th:text="${report.projectGrade}">A</div>
+                <div class="stat-sub">Based on average EEI</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Average EEI</div>
+                <div class="stat-value" style="color:var(--accent)"
+                     th:text="${#numbers.formatDecimal(report.averageEei,1,1)}">72.4</div>
+                <div class="stat-sub">Energy Efficiency Index (0–100)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Hotspots</div>
+                <div class="stat-value"
+                     th:style="${report.totalHotspots > 0} ? 'color:var(--warning)' : 'color:var(--success)'"
+                     th:text="${report.totalHotspots}">0</div>
+                <div class="stat-sub">Methods flagged for optimization</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Below Threshold</div>
+                <div class="stat-value"
+                     th:style="${report.methodsBelowThreshold > 0} ? 'color:var(--danger)' : 'color:var(--success)'"
+                     th:text="${report.methodsBelowThreshold}">0</div>
+                <div class="stat-sub">Methods failing quality gate</div>
+            </div>
+        </div>
+
+        <!-- Project-wide EEI Projection -->
+        <!-- projectedAvg is computed in DashboardController.enrichModel() and passed as a model attribute -->
+        <div class="table-card" style="margin-bottom:1.5rem; padding:1.5rem;">
+            <div style="font-size:0.88rem; font-weight:600; margin-bottom:1.25rem; color:var(--text2);">
+                📈 Projected Improvement — if all hotspot optimizations are applied
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; margin-bottom:1.25rem;">
+
+                <!-- Current -->
+                <div>
+                    <div style="font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.5rem;">Current Average EEI</div>
+                    <div th:with="eeiColor=${report.averageEei >= 70 ? '#22c55e' : (report.averageEei >= 50 ? '#eab308' : (report.averageEei >= 30 ? '#f97316' : '#ef4444'))}"
+                         th:style="'font-size:1.8rem; font-weight:700; font-family:var(--mono); color:' + ${eeiColor}"
+                         th:text="${#numbers.formatDecimal(report.averageEei,1,1)}">47.3</div>
+                    <div style="font-size:0.72rem; color:var(--muted); margin-top:0.3rem;"
+                         th:text="'Grade ' + ${report.projectGrade}">Grade D</div>
+                </div>
+
+                <!-- Arrow -->
+                <div style="display:flex; align-items:center; justify-content:center; font-size:1.5rem; color:var(--accent);">
+                    →
+                </div>
+
+                <!-- Projected -->
+                <div>
+                    <div style="font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.5rem;">Projected Average EEI</div>
+                    <div style="font-size:1.8rem; font-weight:700; font-family:var(--mono); color:var(--success);"
+                         th:text="${#numbers.formatDecimal(projectedAvg,1,1)}">71.8</div>
+                    <div style="font-size:0.72rem; color:var(--muted); margin-top:0.3rem;"
+                         th:text="'Grade ' + ${projectedAvg >= 80 ? 'A' : projectedAvg >= 70 ? 'B' : projectedAvg >= 60 ? 'C' : projectedAvg >= 50 ? 'D' : 'F'}">Grade B</div>
+                </div>
+            </div>
+
+            <!-- Before/after bars -->
+            <div>
+                <div style="margin-bottom:0.5rem;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--muted); margin-bottom:0.3rem;">
+                        <span>Current</span>
+                        <span th:text="${#numbers.formatDecimal(report.averageEei,1,1)} + ' / 100'"></span>
+                    </div>
+                    <div style="height:8px; background:var(--surface3); border-radius:4px; overflow:hidden;">
+                        <div th:with="barColor=${report.averageEei >= 70 ? '#22c55e' : (report.averageEei >= 50 ? '#eab308' : (report.averageEei >= 30 ? '#f97316' : '#ef4444'))}"
+                             th:style="'height:100%; border-radius:4px; background:' + ${barColor} + '; width:' + ${report.averageEei} + '%;'"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--muted); margin-bottom:0.3rem;">
+                        <span>Projected</span>
+                        <span th:text="${#numbers.formatDecimal(projectedAvg,1,1)} + ' / 100'"></span>
+                    </div>
+                    <div style="height:8px; background:var(--surface3); border-radius:4px; overflow:hidden;">
+                        <div th:style="'height:100%; border-radius:4px; background:#22c55e; width:' + ${projectedAvg} + '%;'"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top:0.9rem; font-size:0.78rem; color:var(--muted); font-style:italic;">
+                    * Estimate based on applying all suggested optimizations to hotspot methods.
+                    Actual improvement depends on implementation.
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick nav cards -->
+        <div style="display:grid; grid-template-columns: repeat(3,1fr); gap:1rem; margin-top:1rem;">
+            <a href="/dashboard/charts" class="nav-card">
+                <div style="font-size:1.5rem; margin-bottom:0.5rem;">📈</div>
+                <div style="font-weight:600; margin-bottom:0.25rem;">View Charts</div>
+                <div style="font-size:0.78rem; color:var(--muted);">EEI distribution, tier breakdown, complexity spread</div>
+            </a>
+            <a href="/dashboard/methods" class="nav-card">
+                <div style="font-size:1.5rem; margin-bottom:0.5rem;">🔍</div>
+                <div style="font-weight:600; margin-bottom:0.25rem;">Browse Methods</div>
+                <div style="font-size:0.78rem; color:var(--muted);">Full sortable table with suggestions</div>
+            </a>
+            <a href="/dashboard/hotspots" class="nav-card">
+                <div style="font-size:1.5rem; margin-bottom:0.5rem;">🔥</div>
+                <div style="font-weight:600; margin-bottom:0.25rem;">View Hotspots</div>
+                <div style="font-size:0.78rem; color:var(--muted);"
+                     th:text="${report.totalHotspots} + ' method(s) need priority attention'">N methods</div>
+            </a>
+        </div>
+
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Methods — ' + ${report.projectName}">Methods</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <th:block th:replace="~{dashboard/fragments :: shared-styles}"></th:block>
+</head>
+<body>
+<div class="layout">
+    <th:block th:replace="~{dashboard/fragments :: sidebar}"></th:block>
+    <main class="main">
+
+        <div class="header">
+            <div class="header-left">
+                <h1>Methods: <span class="project-name" th:text="${report.projectName}">Project</span></h1>
+                <div class="header-meta">
+                    <span class="meta-tag" th:text="${report.totalMethodsAnalyzed} + ' methods'"></span>
+                    <span class="meta-tag" th:text="${report.totalHotspots} + ' hotspots'"></span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="/export/csv" class="btn btn-outline">⬇ CSV</a>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="table-header">
+                <div class="table-title">🔍 All Analyzed Methods</div>
+                <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                    <!-- Search box -->
+                    <input type="text" id="searchBox" placeholder="Search method name..."
+                           oninput="searchTable(this.value)"
+                           style="background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+                                  padding:0.35rem 0.75rem; color:var(--text); font-size:0.82rem;
+                                  font-family:'Space Grotesk',sans-serif; width:200px;"/>
+                    <div class="filter-row">
+                        <button class="filter-btn active" onclick="filterTable('all',this)">All</button>
+                        <button class="filter-btn" onclick="filterTable('hotspot',this)">🔥 Hotspots</button>
+                        <button class="filter-btn" onclick="filterTable('CRITICAL',this)">🔴 Critical</button>
+                        <button class="filter-btn" onclick="filterTable('HIGH',this)">🟠 High</button>
+                        <button class="filter-btn" onclick="filterTable('MEDIUM',this)">🟡 Medium</button>
+                        <button class="filter-btn" onclick="filterTable('LOW',this)">🟢 Low</button>
+                    </div>
+                </div>
+            </div>
+
+            <div th:if="${methods.isEmpty()}" class="empty-state">No methods found.</div>
+
+            <div class="table-scroll" th:unless="${methods.isEmpty()}">
+                <table id="methodsTable">
+                    <thead>
+                    <tr>
+                        <th onclick="sortTable(0)" style="cursor:pointer">Method ↕</th>
+                        <th onclick="sortTable(1)" style="cursor:pointer">Complexity ↕</th>
+                        <th onclick="sortTable(2)" style="cursor:pointer">EEI ↕</th>
+                        <th onclick="sortTable(3)" style="cursor:pointer">W-EEI ↕</th>
+                        <th>Tier</th>
+                        <th>Cost</th>
+                        <th onclick="sortTable(6)" style="cursor:pointer">Fan-In ↕</th>
+                        <th onclick="sortTable(7)" style="cursor:pointer">Fan-Out ↕</th>
+                        <th onclick="sortTable(8)" style="cursor:pointer">Centrality ↕</th>
+                        <th>Hotspot</th>
+                        <th>Suggestions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <th:block th:each="method, mStat : ${methods}">
+                        <tr th:data-tier="${method.energyTier.name()}"
+                            th:data-hotspot="${method.hotspot}"
+                            th:data-method="${method.methodName}">
+                            <td>
+                                <div class="method-name" th:text="${method.methodName}">method</div>
+                                <div class="class-name" th:text="${method.className}">Class</div>
+                            </td>
+                            <td>
+                                    <span class="cmplx-badge"
+                                          th:classappend="'cmplx-' + ${method.complexityClass.name()}"
+                                          th:text="${method.complexityClass.label}">O(n)</span>
+                            </td>
+                            <td>
+                                <div class="eei-wrap">
+                                    <div class="eei-bar-bg">
+                                        <div class="eei-bar-fill"
+                                             th:style="'width:' + ${method.eeiScore} + '%; background:' + ${method.energyTier.hexColor}"></div>
+                                    </div>
+                                    <span class="eei-num"
+                                          th:text="${method.eeiFormatted}"
+                                          th:style="'color:' + ${method.energyTier.hexColor}">72</span>
+                                </div>
+                            </td>
+                            <td class="num" th:text="${method.weightedEeiFormatted}">72.0</td>
+                            <td>
+                                    <span class="tier-badge"
+                                          th:classappend="'tier-' + ${method.energyTier.name()}"
+                                          th:text="${method.energyTier.name()}">LOW</span>
+                            </td>
+                            <td class="num" style="font-family:var(--mono);font-size:0.75rem"
+                                th:text="${method.relativeCost}">1x</td>
+                            <td class="num" th:text="${method.fanIn}">0</td>
+                            <td class="num" th:text="${method.fanOut}">0</td>
+                            <td class="num" th:text="${#numbers.formatDecimal(method.centralityScore,1,2)}">0.00</td>
+                            <td>
+                                <span th:if="${method.hotspot}" class="hotspot-yes">⚠ YES</span>
+                                <span th:unless="${method.hotspot}" class="hotspot-no">—</span>
+                            </td>
+                            <td>
+                                <button th:if="${!method.suggestions.isEmpty()}"
+                                        class="suggest-btn"
+                                        th:onclick="'toggleSuggestions(' + ${mStat.index} + ')'">
+                                    <span th:text="${method.suggestions.size()} + ' ▼'"></span>
+                                </button>
+                                <span th:if="${method.suggestions.isEmpty()}"
+                                      style="color:var(--muted);font-size:0.73rem">—</span>
+                            </td>
+                        </tr>
+                        <tr th:id="'sugg-' + ${mStat.index}"
+                            class="suggest-row"
+                            th:unless="${method.suggestions.isEmpty()}">
+                            <td colspan="11" style="padding:0">
+                                <div class="suggest-panel">
+                                    <div th:each="s : ${method.suggestions}" class="suggest-item">
+                                        <div class="suggest-title">
+                                                <span th:classappend="'p-' + ${s.priority}"
+                                                      th:text="'[' + ${s.priority} + ']'"></span>
+                                            <span th:text="${s.title}">Title</span>
+                                        </div>
+                                        <div class="suggest-why">
+                                            <strong style="color:var(--warning)">Why it matters: </strong>
+                                            <span th:text="${s.whyItMatters}"></span>
+                                        </div>
+                                        <div class="suggest-how">
+                                            <strong style="color:var(--accent)">How to fix: </strong>
+                                            <span th:text="${s.howToFix}"></span>
+                                        </div>
+                                        <div th:if="${s.codeExample != null and !s.codeExample.isEmpty()}"
+                                             class="suggest-code" th:text="${s.codeExample}"></div>
+                                        <div th:if="${s.estimatedEeiGain > 0}" class="suggest-gain"
+                                             th:text="'Estimated EEI gain: +' + ${s.estimatedEeiGain} + ' points'"></div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </th:block>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    // ── Sort ──────────────────────────────────────────────────────────────────────
+    let sortDirections = {};
+    function sortTable(colIndex) {
+        const table = document.getElementById('methodsTable');
+        const tbody = table.querySelector('tbody');
+        const rows  = Array.from(tbody.querySelectorAll('tr[data-tier]'));
+        const asc   = !sortDirections[colIndex];
+        sortDirections = {};
+        sortDirections[colIndex] = asc;
+
+        rows.sort((a, b) => {
+            const aVal = a.cells[colIndex]?.innerText.trim() || '';
+            const bVal = b.cells[colIndex]?.innerText.trim() || '';
+            const aNum = parseFloat(aVal);
+            const bNum = parseFloat(bVal);
+            if (!isNaN(aNum) && !isNaN(bNum)) return asc ? aNum - bNum : bNum - aNum;
+            return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+
+        rows.forEach(row => {
+            tbody.appendChild(row);
+            // move associated suggestion row too
+            const idx = row.querySelector('button[onclick]')
+                ?.getAttribute('onclick')?.match(/\d+/)?.[0];
+            if (idx) {
+                const suggRow = document.getElementById('sugg-' + idx);
+                if (suggRow) tbody.appendChild(suggRow);
+            }
+        });
+    }
+
+    // ── Filter ────────────────────────────────────────────────────────────────────
+    function filterTable(filter, btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('#methodsTable tbody tr[data-tier]').forEach(row => {
+            const tier    = row.dataset.tier;
+            const hotspot = row.dataset.hotspot === 'true';
+            let show = true;
+            if (filter === 'hotspot')  show = hotspot;
+            else if (filter !== 'all') show = tier === filter;
+            row.style.display = show ? '' : 'none';
+        });
+    }
+
+    // ── Search ────────────────────────────────────────────────────────────────────
+    function searchTable(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('#methodsTable tbody tr[data-tier]').forEach(row => {
+            const methodName = (row.dataset.method || '').toLowerCase();
+            const classText  = row.cells[0]?.innerText.toLowerCase() || '';
+            row.style.display = (methodName.includes(q) || classText.includes(q)) ? '' : 'none';
+        });
+    }
+
+    // ── Suggestions ───────────────────────────────────────────────────────────────
+    function toggleSuggestions(idx) {
+        const row = document.getElementById('sugg-' + idx);
+        if (!row) return;
+        row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
+    }
+</script>
+</body>
+</html>

@@ -10,6 +10,7 @@ com\energyanalyzer\model\MethodNode.class
 com\energyanalyzer\model\StaticMetrics$StaticMetricsBuilder.class
 com\energyanalyzer\service\SuggestionEngineService.class
 com\energyanalyzer\model\MethodNode$MethodNodeBuilder.class
+com\energyanalyzer\model\StreamAnalysisResult$StreamComplexity.class
 com\energyanalyzer\service\HotspotDetectorService.class
 com\energyanalyzer\model\ComplexityClass.class
 com\energyanalyzer\model\StaticMetrics.class
@@ -32,3 +33,4 @@ com\energyanalyzer\service\CodeParserService.class
 com\energyanalyzer\service\ExportService.class
 com\energyanalyzer\model\CallGraph.class
 com\energyanalyzer\service\ComplexityClassifierService.class
+com\energyanalyzer\model\StreamAnalysisResult.class

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Charts — ' + ${report.projectName}">Charts</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <th:block th:replace="~{dashboard/fragments :: shared-styles}"></th:block>
+</head>
+<body>
+<div class="layout">
+    <th:block th:replace="~{dashboard/fragments :: sidebar}"></th:block>
+    <main class="main">
+
+        <div class="header">
+            <div class="header-left">
+                <h1>Charts: <span class="project-name" th:text="${report.projectName}">Project</span></h1>
+                <div class="header-meta">
+                    <span class="meta-tag" th:text="${report.totalMethodsAnalyzed} + ' methods analyzed'"></span>
+                    <span class="meta-tag" th:text="'Avg EEI: ' + ${#numbers.formatDecimal(report.averageEei,1,1)}"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card full">
+                <div class="chart-title">⚡ EEI Score per Method — lower = needs optimization (purple line = threshold)</div>
+                <div class="chart-wrap tall"><canvas id="eeiChart"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">🏷 Energy Tier Distribution</div>
+                <div class="chart-wrap"><canvas id="tierChart"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">🔢 Complexity Class Distribution</div>
+                <div class="chart-wrap"><canvas id="complexityChart"></canvas></div>
+            </div>
+            <div class="chart-card full">
+                <div class="chart-title">⚖ Weighted EEI — EEI adjusted by call graph structural importance</div>
+                <div class="chart-wrap tall"><canvas id="weightedChart"></canvas></div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const methodLabels   = /*[[${methods.![fullMethodId]}]]*/ [];
+    const eeiScores      = /*[[${methods.![eeiScore]}]]*/ [];
+    const weightedScores = /*[[${methods.![weightedEei]}]]*/ [];
+    const tierNames      = /*[[${methods.![energyTier.name()]}]]*/ [];
+    const complexityNames= /*[[${methods.![complexityClass.name()]}]]*/ [];
+    const threshold      = 60;
+
+    const tierCounts = {};
+    tierNames.forEach(t => { tierCounts[t] = (tierCounts[t]||0)+1; });
+    const complexityCounts = {};
+    complexityNames.forEach(c => { complexityCounts[c] = (complexityCounts[c]||0)+1; });
+    /*]]>*/
+</script>
+<script th:replace="~{dashboard/fragments :: chart-scripts}"></script>
+</body>
+</html>
